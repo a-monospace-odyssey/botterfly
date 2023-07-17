@@ -7,6 +7,35 @@ import random
 import glob
 import re
 from fuzzywuzzy import fuzz, process
+import asyncio
+import json
+
+# Get the absolute directory path of the script
+script_directory = os.path.dirname(os.path.abspath(__file__))
+
+# Load config file from the script's directory
+config_path = os.path.join(script_directory, 'config.json')
+with open(config_path, 'r') as f:
+    config = json.load(f)
+
+# Load config variables (directory locations)
+tv_show_directory = config["tv_show_directory"]
+movie_directory = config["movie_directory"]
+music_video_directory = config["music_video_directory"]
+bumper_directory = config["bumper_directory"]
+intermission_directory = config["intermission_directory"]
+movie_list = config["movie_list"]
+tv_show_list = config["tv_show_list"]
+recently_added_list = config["recently_added_list"]
+
+# function for loading media files into mpv queue
+def add_bumpers(mpv, directory, extensions):
+    bumpers = glob.glob(os.path.join(directory, '*'))
+    bumpers = [bumper for bumper in bumpers if os.path.splitext(bumper)[1].lower() in extensions]
+    random.shuffle(bumpers)
+    selected_bumpers = bumpers[:1]  # Select the first bumper from the shuffled list
+    for bumper in selected_bumpers:
+        mpv.command('loadfile', bumper, 'append-play')
 
 def get_random_file(directory, extensions):
     found_files = []
@@ -18,6 +47,7 @@ def get_random_file(directory, extensions):
         return None
     return random.choice(found_files)
 
+
 def fuzzy_search_directory(query, directory, extensions):
     found_files = []
     for root, _, files in os.walk(directory):
@@ -27,6 +57,7 @@ def fuzzy_search_directory(query, directory, extensions):
     results = process.extract(query, found_files, limit=1)
     best_match = results[0]
     return best_match[0] if best_match[1] >= 50 else None
+
 
 # Function for making shows watched log
 def log_last_played(directory, show_name, season_episode):
@@ -47,6 +78,7 @@ def log_last_played(directory, show_name, season_episode):
         for show, ep in data.items():
             fw.write(f'{show},{ep}\n')
 
+
 # Fuzzy search for show log
 def get_best_match(search_string, candidates, threshold=80):
     best_ratio = threshold
@@ -57,6 +89,7 @@ def get_best_match(search_string, candidates, threshold=80):
             best_match = candidate
             best_ratio = ratio
     return best_match
+
 
 # reading shows watched log
 def get_next_episode(directory, show_to_search):
@@ -76,6 +109,7 @@ def get_next_episode(directory, show_to_search):
         season, episode = re.match(r'S(\d+)E(\d+)', season_episode.upper()).groups()
         next_episode = f'S{int(season):02d}E{int(episode)+1:02d}'
     return show_name, next_episode
+
 
 # loading next episode in list
 async def play_media(ctx, show_name, season_episode, directory):
@@ -102,6 +136,8 @@ async def play_media(ctx, show_name, season_episode, directory):
         sanitized_show_name = show_name.replace(',', '')
         log_last_played(directory, sanitized_show_name, season_episode)
         await ctx.send(f'Media added to queue: {found_media}')
+        # Load bumpers
+        add_bumpers(player, bumper_directory, ['.mp4', '.mkv', '.avi'])
     else:
         await ctx.send(f'No media file found for search text: {search_text}')
 
@@ -110,64 +146,86 @@ load_dotenv()
 player = MPV()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
+
 # Declare intents
 intents = discord.Intents.all()
 intents.members = True
 intents.guilds = True
 intents.messages = True
 
+
 # Initialize the bot
 bot = commands.Bot(command_prefix='$', intents=intents)
 
 
+@bot.command()
+async def test(ctx):
+    response = "Fly, fly fly."
+    await ctx.send(response)
+
 
 @bot.command()
 async def recentlyadded(ctx):
-    with open('Z:\\CYM\\recently-added.txt', 'rb') as f:
+    with open(recently_added_list, 'rb') as f:
         file = discord.File(f)
         await ctx.send(file=file)
+
 
 @bot.command()
 async def listmovies(ctx):
-    with open('Z:\\CYM\\movie-list.txt', 'rb') as f:
+    with open(movie_list, 'rb') as f:
         file = discord.File(f)
         await ctx.send(file=file)
 
+
 @bot.command()
 async def listshows(ctx):
-    with open('Z:\\CYM\\show-list.txt', 'rb') as f:
+    with open(tv_show_list, 'rb') as f:
         file = discord.File(f)
         await ctx.send(file=file)
+
 
 @bot.command()
 async def pause(ctx):
     player.pause = True
     await ctx.send("Paused MPV.")
 
+
 @bot.command()
 async def unpause(ctx):
     player.pause = False
     await ctx.send("Unpaused MPV.")
+
 
 @bot.command()
 async def resume(ctx):
     player.pause = False
     await ctx.send("Resumed MPV.")
 
+
 @bot.command()
 async def skip(ctx):
     player.playlist_next()
     await ctx.send("Skipped to the next loaded media.")
+
 
 @bot.command()
 async def ffw(ctx, seconds: int):
     player.seek(player.time_pos + seconds)
     await ctx.send(f"Skipped forward {seconds} seconds.")
 
+
 @bot.command()
 async def rew(ctx, seconds: int):
     player.seek(player.time_pos - seconds)
     await ctx.send(f"Skipped backward {seconds} seconds.")
+
+
+@bot.command()
+async def clearplaylist(ctx):
+    player.playlist_clear()
+    await ctx.send("Cleared the media player's playlist.")
+
 
 @bot.command()
 async def time(ctx):
@@ -186,17 +244,14 @@ async def time(ctx):
     await ctx.send(response)
 
 
-
-
 @bot.command()
 async def playmusicvideo(ctx, *, search_query: str = None):
     extensions = ['.mp4', '.webm', '.avi']
-    directory_path = 'Z:\CYM\Music Videos'
     if search_query:
-        media_file_path = fuzzy_search_directory(search_query, directory_path, extensions)
+        media_file_path = fuzzy_search_directory(search_query, music_video_directory, extensions)
         print(f"Searching for query: {search_query}")  # Debug line to see the searched query
     else:
-        media_file_path = get_random_file(directory_path, extensions)
+        media_file_path = get_random_file(music_video_directory, extensions)
 
     print(f"Selected media file path: {media_file_path}")  # Debug line to see the selected media file path
 
@@ -206,27 +261,27 @@ async def playmusicvideo(ctx, *, search_query: str = None):
     else:
         await ctx.send('No matching file found.')
 
+
 @bot.command()
 async def playintermission(ctx, *, search_query: str = None):
-    directory_path = 'Z:\CYM\Intermissions'
     intermission_extensions = {'.mp4', '.mkv', '.avi'}
 
     if search_query:
-        media_file_path = fuzzy_search_directory(search_query, directory_path, intermission_extensions)
+        media_file_path = fuzzy_search_directory(search_query, intermission_directory, intermission_extensions)
     else:
-        media_file_path = get_random_file(directory_path, intermission_extensions)
+        media_file_path = get_random_file(intermission_directory, intermission_extensions)
 
     if media_file_path:
         player.command("loadfile", media_file_path, "append-play")
         await ctx.send(f'Loaded and added to queue: {media_file_path}')
     else:
         await ctx.send('No matching file found.')
+
 
 @bot.command()
 async def playmovie(ctx, *, search_query: str):
-    directory_path = 'Z:\CYM\Movies'
     movie_extensions = {'.mp4', '.mkv', '.avi'}
-    media_file_path = fuzzy_search_directory(search_query, directory_path, movie_extensions)
+    media_file_path = fuzzy_search_directory(search_query, movie_directory, movie_extensions)
 
     if media_file_path:
         player.command("loadfile", media_file_path, "append-play")
@@ -234,11 +289,20 @@ async def playmovie(ctx, *, search_query: str):
     else:
         await ctx.send('No matching file found.')
 
+
 @bot.command()
 async def playshow(ctx, *args: str):
-    directory = 'Z:\\CYM\\Shows\\'
+    '''
+    This command plays a specific episode of a show. It expects the show name and specific episode 
+    format (in the form S##E##) as arguments. The episode is then searched in the local media directory 
+    and played if found.
+
+    :param ctx: The context in which the command was called.
+    :param args: The arguments given to the command. The first to penultimate are joined together to form 
+    the show name, while the last represents the season and episode number.
+    '''
     show_name = ' '.join(args[:-1])
-    season_episode = args[-1]
+    season_episode = args[-1] 
 
     match = re.match(r'S(\d+)E(\d+)', season_episode.upper())
     if match:
@@ -247,8 +311,17 @@ async def playshow(ctx, *args: str):
     else:
         await ctx.send('Invalid season and episode format. Use S##E## format.')
         return
+     
+    # Add show name error checking here
+    # For example:
+    # if show_name not in tv_show_directory:
+    #     await ctx.send('Show not found.')
+    #     return
 
-    await play_media(ctx, show_name, formatted_season_episode, directory)
+    print(f'Receiving command to play {show_name} {formatted_season_episode}')
+    await play_media(ctx, show_name, formatted_season_episode, tv_show_directory)
+    print('Command executed successfully.')
+
 
 @bot.command()
 async def next(ctx, *args: str):
@@ -261,6 +334,46 @@ async def next(ctx, *args: str):
     else:
         await ctx.send(
             f'No information found for the "{show_to_search}". Make sure you have played an episode of this show before.')
+
+# Global flag variable to track if the intro file has played
+intro_played = False
+
+# watch mpv player for if it runs out of files to play
+# if it does, then play a random file from specified directory
+async def watch_mpv_player():
+    global intro_played  # Access the global flag variable
+
+    while True:
+        # Check if the MPV player is idle
+        if player.command("get_property", "idle-active"):
+            # Check if the intro file has played
+            if intro_played:
+                # Get a random file from the specified directory
+                directory = 'Z:/CYM/Shows/Ambient.Swim.S01.1080p.WEBRip.DD5.1.x264-KOGi[rartv]'
+                extensions = ['.mp4', '.mkv', '.avi']
+                random_file = get_random_file(directory, extensions)
+
+                # Load the random file into the MPV player
+                if random_file:
+                    player.loadfile(random_file)
+                    print(f"Loaded random file: {random_file}")
+            else:
+                # Play the intro file
+                intro_file = 'Z:/CYM/tokyo-intermissions/tokyo-night-intermission.mp4'
+                player.loadfile(intro_file)
+                print(f"Loaded intro file: {intro_file}")
+
+                # Set the intro played flag to True
+                intro_played = True
+
+        # Delay between each check (adjust the duration as per your preference)
+        await asyncio.sleep(10)
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user.name} ({bot.user.id})")
+    # Start watching the MPV player
+    bot.loop.create_task(watch_mpv_player())
 
 
 # Run the bot
