@@ -28,6 +28,19 @@ movie_list = config["movie_list"]
 tv_show_list = config["tv_show_list"]
 recently_added_list = config["recently_added_list"]
 
+
+# Function for loading media URLs into mpv queue
+def add_media_url(mpv, url):
+    # Use regular expressions to check if the URL is in a valid format
+    url_pattern = re.compile(r'^https?://')
+    if not url_pattern.match(url):
+        return False  # Invalid URL format, return False
+
+    # Use mpv's `loadfile` command to append the URL to the queue
+    mpv.command('loadfile', url, 'append-play')
+    return True
+
+
 # function for loading media files into mpv queue
 def add_bumpers(mpv, directory, extensions):
     bumpers = glob.glob(os.path.join(directory, '*'))
@@ -221,13 +234,13 @@ async def rew(ctx, seconds: int):
     await ctx.send(f"Skipped backward {seconds} seconds.")
 
 
-@bot.command()
+@bot.command(aliases=['clear', 'c'])
 async def clearplaylist(ctx):
     player.playlist_clear()
     await ctx.send("Cleared the media player's playlist.")
 
 
-@bot.command()
+@bot.command(aliases=['timeleft', 't'])
 async def time(ctx):
     try:
         current_time = player.playback_time
@@ -245,6 +258,17 @@ async def time(ctx):
 
 
 @bot.command()
+async def http(ctx, *, url: str):
+    # Call the function to load the URL into the MPV queue
+    success = add_media_url(player, url)
+    if success:
+        await ctx.send(f'Successfully added URL to the queue: {url}')
+    else:
+        await ctx.send('Invalid URL format. Please provide a valid URL starting with "http://" or "https://".')
+
+
+
+@bot.command(aliases=['pmv', 'playmv', 'musicvideo'])
 async def playmusicvideo(ctx, *, search_query: str = None):
     extensions = ['.mp4', '.webm', '.avi']
     if search_query:
@@ -262,7 +286,7 @@ async def playmusicvideo(ctx, *, search_query: str = None):
         await ctx.send('No matching file found.')
 
 
-@bot.command()
+@bot.command(aliases=['pi'])
 async def playintermission(ctx, *, search_query: str = None):
     intermission_extensions = {'.mp4', '.mkv', '.avi'}
 
@@ -278,7 +302,7 @@ async def playintermission(ctx, *, search_query: str = None):
         await ctx.send('No matching file found.')
 
 
-@bot.command()
+@bot.command(aliases=['pm'])
 async def playmovie(ctx, *, search_query: str):
     movie_extensions = {'.mp4', '.mkv', '.avi'}
     media_file_path = fuzzy_search_directory(search_query, movie_directory, movie_extensions)
@@ -290,7 +314,7 @@ async def playmovie(ctx, *, search_query: str):
         await ctx.send('No matching file found.')
 
 
-@bot.command()
+@bot.command(aliases=['ps', 'show'])
 async def playshow(ctx, *args: str):
     '''
     This command plays a specific episode of a show. It expects the show name and specific episode 
@@ -309,7 +333,7 @@ async def playshow(ctx, *args: str):
         season, episode = match.groups()
         formatted_season_episode = f'S{int(season):02d}E{int(episode):02d}'
     else:
-        await ctx.send('Invalid season and episode format. Use S##E## format.')
+        await ctx.send('Invalid season and episode format, use S##E## format (e.g. S02E07)')
         return
      
     # Add show name error checking here
@@ -325,6 +349,10 @@ async def playshow(ctx, *args: str):
 
 @bot.command()
 async def next(ctx, *args: str):
+    if not args:
+        # If no arguments are provided, execute the skip command
+        await skip(ctx)
+        return
     show_to_search = ' '.join(args)
     directory = 'Z:\\CYM\\Shows\\'
     show_name, next_episode = get_next_episode(directory, show_to_search)
@@ -359,7 +387,7 @@ async def watch_mpv_player():
                     print(f"Loaded random file: {random_file}")
             else:
                 # Play the intro file
-                intro_file = 'Z:/CYM/tokyo-intermissions/tokyo-night-intermission.mp4'
+                intro_file = 'Z:/CYM/tokyo-intermissions/burushiti-please-wait-1.mp4'
                 player.loadfile(intro_file)
                 print(f"Loaded intro file: {intro_file}")
 
