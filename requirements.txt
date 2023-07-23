@@ -1,0 +1,4 @@
+discord.py
+python_mpv_jsonipc
+python-dotenv
+fuzzywuzzy

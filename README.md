@@ -30,7 +30,7 @@ And change directory `cd` into the botterfly directory.
 
 `cd botterfly`
 
-Install the required dependencies using `pip`. (!!! NEED TO UPDATE REQUIREMENTS.TXT !!!)
+Install the required dependencies using `pip`.
 
 `pip install -r requirements.txt`
 
