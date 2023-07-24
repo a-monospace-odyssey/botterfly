@@ -6,6 +6,8 @@
     "intermission_directory": "Z:/CYM/Intermissions",
     "movie_list": "Z:/CYM/movie-list.txt",
     "tv_show_list": "Z:/CYM/show-list.txt",
-    "recently_added_list": "Z:/CYM/recently-added.txt"
+    "recently_added_list": "Z:/CYM/recently-added.txt",
+    "music_for_intermissions": "Z:/CYM/Music/burushiti",
+    "video_for_intermissions": "Z:/CYM/dead-air-filler"
   }
   

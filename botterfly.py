@@ -3,6 +3,7 @@ from discord.ext import commands
 from python_mpv_jsonipc import MPV
 from dotenv import load_dotenv
 import os
+import time
 import random
 import glob
 import re
@@ -27,6 +28,8 @@ intermission_directory = config["intermission_directory"]
 movie_list = config["movie_list"]
 tv_show_list = config["tv_show_list"]
 recently_added_list = config["recently_added_list"]
+video_for_intermissions = config["video_for_intermissions"]
+music_for_intermissions = config["music_for_intermissions"]
 
 
 # Function for loading media URLs into mpv queue
@@ -41,7 +44,7 @@ def add_media_url(mpv, url):
     return True
 
 
-# function for loading media files into mpv queue
+# function for loading "bumpers" into mpv queue
 def add_bumpers(mpv, directory, extensions):
     bumpers = glob.glob(os.path.join(directory, '*'))
     bumpers = [bumper for bumper in bumpers if os.path.splitext(bumper)[1].lower() in extensions]
@@ -50,6 +53,8 @@ def add_bumpers(mpv, directory, extensions):
     for bumper in selected_bumpers:
         mpv.command('loadfile', bumper, 'append-play')
 
+
+# Function for getting a random file from a directory
 def get_random_file(directory, extensions):
     found_files = []
     for root, _, files in os.walk(directory):
@@ -61,6 +66,7 @@ def get_random_file(directory, extensions):
     return random.choice(found_files)
 
 
+# Function for fuzzy searching a directory
 def fuzzy_search_directory(query, directory, extensions):
     found_files = []
     for root, _, files in os.walk(directory):
@@ -92,7 +98,7 @@ def log_last_played(directory, show_name, season_episode):
             fw.write(f'{show},{ep}\n')
 
 
-# Fuzzy search for show log
+# Fuzzy search/match for show log
 def get_best_match(search_string, candidates, threshold=80):
     best_ratio = threshold
     best_match = None
@@ -155,6 +161,7 @@ async def play_media(ctx, show_name, season_episode, directory):
         await ctx.send(f'No media file found for search text: {search_text}')
 
 
+# Initialize the MPV player
 load_dotenv()
 player = MPV()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -171,26 +178,21 @@ intents.messages = True
 bot = commands.Bot(command_prefix='$', intents=intents)
 
 
-@bot.command()
-async def test(ctx):
-    response = "Fly, fly fly."
-    await ctx.send(response)
-
-
+# Call text file with list of recently added media
 @bot.command()
 async def recentlyadded(ctx):
     with open(recently_added_list, 'rb') as f:
         file = discord.File(f)
         await ctx.send(file=file)
 
-
+# Call text file with list of movies
 @bot.command()
 async def listmovies(ctx):
     with open(movie_list, 'rb') as f:
         file = discord.File(f)
         await ctx.send(file=file)
 
-
+# Call text file with list of TV shows
 @bot.command()
 async def listshows(ctx):
     with open(tv_show_list, 'rb') as f:
@@ -257,8 +259,12 @@ async def time(ctx):
     await ctx.send(response)
 
 
+# 
 @bot.command()
-async def http(ctx, *, url: str):
+async def url(ctx, *, url: str):
+    '''
+    Queue video from URL
+    '''
     # Call the function to load the URL into the MPV queue
     success = add_media_url(player, url)
     if success:
@@ -363,28 +369,40 @@ async def next(ctx, *args: str):
         await ctx.send(
             f'No information found for the "{show_to_search}". Make sure you have played an episode of this show before.')
 
+
 # Global flag variable to track if the intro file has played
 intro_played = False
 
-# watch mpv player for if it runs out of files to play
-# if it does, then play a random file from specified directory
+
+# Dead air killer
 async def watch_mpv_player():
     global intro_played  # Access the global flag variable
 
     while True:
         # Check if the MPV player is idle
         if player.command("get_property", "idle-active"):
+            # Get a random video file from the specified directory
+            directory = video_for_intermissions
+            extensions = ['.mp4', '.mkv', '.avi', '.webm', '.flv', '.mov']
+            random_video = get_random_file(directory, extensions)
+
             # Check if the intro file has played
             if intro_played:
-                # Get a random file from the specified directory
-                directory = 'Z:/CYM/Shows/Ambient.Swim.S01.1080p.WEBRip.DD5.1.x264-KOGi[rartv]'
-                extensions = ['.mp4', '.mkv', '.avi']
-                random_file = get_random_file(directory, extensions)
+                # Get three random music files from the specified directory
+                audio_directory = music_for_intermissions
+                audio_extensions = ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.opus']
+                random_audio_files = [get_random_file(audio_directory, audio_extensions) for _ in range(1)]
 
-                # Load the random file into the MPV player
-                if random_file:
-                    player.loadfile(random_file)
-                    print(f"Loaded random file: {random_file}")
+                # Load the random video and audio files into the MPV player
+                if random_video:
+                    player.loadfile(random_video)
+                    print(f"Loaded random video file: {random_video}")
+
+                for audio_file in random_audio_files:
+                    if audio_file:
+                        player.command("audio-add", audio_file)
+                        print(f"Loaded random audio file: {audio_file}")
+                        
             else:
                 # Play the intro file
                 intro_file = 'Z:/CYM/tokyo-intermissions/burushiti-please-wait-1.mp4'
@@ -395,7 +413,8 @@ async def watch_mpv_player():
                 intro_played = True
 
         # Delay between each check (adjust the duration as per your preference)
-        await asyncio.sleep(10)
+        await asyncio.sleep(5)
+
 
 @bot.event
 async def on_ready():
