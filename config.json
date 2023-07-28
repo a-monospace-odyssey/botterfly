@@ -2,12 +2,13 @@
     "tv_show_directory": "Z:/CYM/Shows",
     "movie_directory": "Z:/CYM/Movies",
     "music_video_directory": "Z:/CYM/Music Videos",
-    "bumper_directory": "Z:/CYM/tokyo-bumps",
+    "bumper_directory": "Z:/CYM/burushiti/tokyo-bumps",
     "intermission_directory": "Z:/CYM/Intermissions",
     "movie_list": "Z:/CYM/movie-list.txt",
     "tv_show_list": "Z:/CYM/show-list.txt",
     "recently_added_list": "Z:/CYM/recently-added.txt",
-    "music_for_intermissions": "Z:/CYM/Music/burushiti",
-    "video_for_intermissions": "Z:/CYM/dead-air-filler"
+    "music_for_intermissions": "Z:/CYM/burushiti/music",
+    "video_for_intermissions": "Z:/CYM/burushiti/dead-air-filler",
+    "intro_intermissions": "Z:/CYM/burushiti/tokyo-intermissions/"
   }
   

@@ -30,6 +30,7 @@ tv_show_list = config["tv_show_list"]
 recently_added_list = config["recently_added_list"]
 video_for_intermissions = config["video_for_intermissions"]
 music_for_intermissions = config["music_for_intermissions"]
+intro_intermissions = config["intro_intermissions"]
 
 
 # Function for loading media URLs into mpv queue
@@ -186,14 +187,14 @@ async def recentlyadded(ctx):
         await ctx.send(file=file)
 
 # Call text file with list of movies
-@bot.command()
+@bot.command(aliases=['lm', 'movielist', 'movieslist'])
 async def listmovies(ctx):
     with open(movie_list, 'rb') as f:
         file = discord.File(f)
         await ctx.send(file=file)
 
 # Call text file with list of TV shows
-@bot.command()
+@bot.command(aliases=['ls', 'showlist', 'showslist'])
 async def listshows(ctx):
     with open(tv_show_list, 'rb') as f:
         file = discord.File(f)
@@ -260,7 +261,7 @@ async def time(ctx):
 
 
 # 
-@bot.command()
+@bot.command(aliases=['link', 'http', 'youtube', 'yt'])
 async def url(ctx, *, url: str):
     '''
     Queue video from URL
@@ -292,7 +293,7 @@ async def playmusicvideo(ctx, *, search_query: str = None):
         await ctx.send('No matching file found.')
 
 
-@bot.command(aliases=['pi'])
+@bot.command(aliases=['pi', 'intermission'])
 async def playintermission(ctx, *, search_query: str = None):
     intermission_extensions = {'.mp4', '.mkv', '.avi'}
 
@@ -308,7 +309,7 @@ async def playintermission(ctx, *, search_query: str = None):
         await ctx.send('No matching file found.')
 
 
-@bot.command(aliases=['pm'])
+@bot.command(aliases=['pm', 'movie'])
 async def playmovie(ctx, *, search_query: str):
     movie_extensions = {'.mp4', '.mkv', '.avi'}
     media_file_path = fuzzy_search_directory(search_query, movie_directory, movie_extensions)
@@ -360,7 +361,7 @@ async def next(ctx, *args: str):
         await skip(ctx)
         return
     show_to_search = ' '.join(args)
-    directory = 'Z:\\CYM\\Shows\\'
+    directory = tv_show_directory
     show_name, next_episode = get_next_episode(directory, show_to_search)
 
     if show_name and next_episode:
@@ -405,7 +406,7 @@ async def watch_mpv_player():
                         
             else:
                 # Play the intro file
-                intro_file = 'Z:/CYM/tokyo-intermissions/burushiti-please-wait-1.mp4'
+                intro_file = intro_intermissions
                 player.loadfile(intro_file)
                 print(f"Loaded intro file: {intro_file}")
 
